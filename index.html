@@ -1,7 +1,7 @@
 // ----- CONFIG -----
 const GEOJSON_URL = "./data/cutblock_year_timelapse.geojson";
-const YEAR_FIELD = "HARVEST_START_YEAR_CALENDAR"; // <-- CHANGE THIS to match your GeoJSON properties field name
-const CUMULATIVE = true;   // year <= currentYear
+const YEAR_FIELD = "HARVEST_START_YEAR_CALENDAR"; 
+const CUMULATIVE = true;   
 const AUTOPLAY_ON_LOAD = true;
 const DEFAULT_SPEED_MS = 200; // 1× speed
 
@@ -202,7 +202,6 @@ map.on("load", async () => {
         }
     });
 
-    // Optional: make year changes feel less “steppy”
     map.setPaintProperty("logging-fill", "fill-opacity-transition", { duration: 250, delay: 0 });
 
     setYear(years[0]);
