@@ -1,213 +1,52 @@
-// ----- CONFIG -----
-const GEOJSON_URL = "./data/cutblock_year_timelapse.geojson";
-const YEAR_FIELD = "HARVEST_START_YEAR_CALENDAR"; 
-const CUMULATIVE = true;   
-const AUTOPLAY_ON_LOAD = true;
-const DEFAULT_SPEED_MS = 200; // 1× speed
+<!doctype html>
+<html lang="en">
 
-// Carto light bsaemap
-const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-// -------------------
+<head>
+  <meta charset="utf-8" />
+  <title>Logging Timelapse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-//--------------------
-// AOI & map setup
-//--------------------
+  <!-- MapLibre CSS -->
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
 
-// --- Align with other maps
-const swLon = -123.23407668799925;
-const swLat = 49.53559929341239;
-const neLon = -123.06988635889327;
-const neLat = 49.61080514852734;
+  <!-- Your CSS (put AFTER MapLibre so it can override) -->
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-// --- 2 km buffer around the original box ---
-const meanLat = (swLat + neLat) / 2;
+<body>
+  <div id="map"></div>
 
-const bufferLat = 2 / 111;
-const bufferLon = 2 / (111.32 * Math.cos(meanLat * Math.PI / 180));
+  <div class="time-control">
+    <div class="time-inner">
+      <button id="playBtn" class="play-btn" aria-label="Play/pause">▶</button>
 
-const maxBounds = new maplibregl.LngLatBounds(
-    [swLon - bufferLon, swLat - bufferLat],
-    [neLon + bufferLon, neLat + bufferLat]
-);
+      <!-- speed moved next to play button -->
+      <select id="speedSelect" class="speed-select" aria-label="Playback speed">
+        <option value="400">0.5x</option>
+        <option value="200" selected>1x</option>
+        <option value="50">2x</option>
+      </select>
 
-const mapCenter = maxBounds.getCenter();
+      <!-- removed the "Year" label -->
+      <input id="yearSlider" type="range" />
 
-const map = new maplibregl.Map({
-    container: "map",
-    style: BASEMAP_STYLE,
-    maxBounds: maxBounds,
-    maxZoom: 12,
-    center: [mapCenter.lng, mapCenter.lat],
-    zoom: 10
-});
+      <!-- year label at end of slider -->
+      <span id="year-label">—</span>
+    </div>
+  </div>
 
-map.scrollZoom.disable();
-map.addControl(new maplibregl.NavigationControl(), "top-right");
-
-const yearSlider = document.getElementById("yearSlider");
-const yearLabel = document.getElementById("year-label");
-const playBtn = document.getElementById("playBtn");
-const speedSelect = document.getElementById("speedSelect");
-
-function getNumberParam(name, fallback) {
-    const value = new URLSearchParams(window.location.search).get(name);
-    const num = Number(value);
-    return Number.isFinite(num) ? num : fallback;
-}
-
-let years = [];
-let currentYear = null;
-let playing = false;
-let timer = null;
-let START_YEAR_LIMIT = null;
-let END_YEAR_LIMIT = null;
-
-function setYear(y) {
-    currentYear = Number(y);
-    yearSlider.value = String(currentYear);
-    yearLabel.textContent = String(currentYear);
-
-    const filter = CUMULATIVE
-        ? ["<=", ["to-number", ["get", YEAR_FIELD]], currentYear]
-        : ["==", ["to-number", ["get", YEAR_FIELD]], currentYear];
-
-    map.setFilter("logging-fill", filter);
-    map.setFilter("logging-line", filter);
-}
-
-function stopPlayback() {
-    playing = false;
-    playBtn.textContent = "▶";
-    if (timer) clearInterval(timer);
-    timer = null;
-}
-
-function startPlayback() {
-    if (years.length === 0) return;
-
-    playing = true;
-    playBtn.textContent = "⏸";
-
-    const intervalMs = Number(speedSelect.value || DEFAULT_SPEED_MS);
-
-    timer = setInterval(() => {
-        const idx = years.indexOf(currentYear);
-        const nextIdx = (idx < 0 || idx === years.length - 1) ? 0 : idx + 1;
-        setYear(years[nextIdx]);
-    }, intervalMs);
-}
-
-speedSelect.addEventListener("change", () => {
-    if (!playing) return;
-    stopPlayback();
-    startPlayback();
-});
-
-playBtn.addEventListener("click", () => {
-    if (playing) stopPlayback();
-    else startPlayback();
-});
-
-yearSlider.addEventListener("input", (e) => {
-    stopPlayback();
-
-    const raw = Number(e.target.value);
-    // find nearest year in years[]
-    let nearest = years[0];
-    let best = Math.abs(raw - nearest);
-
-    for (const y of years) {
-        const d = Math.abs(raw - y);
-        if (d < best) { best = d; nearest = y; }
-    }
-
-    setYear(nearest);
-});
+  <div class="credits" role="contentinfo" aria-label="Map credits">
+  <span id="creditsText">
+    Basemap © CARTO / OpenStreetMap contributors.  
+    Logging layer <span id="FAIB">Copyright © 2025,  Forest Analysis and Inventory Branch, Province of British Columbia.'</span>.
+    Original data can be obtained from https://catalogue.data.gov.bc.ca/dataset/harvested-areas-of-bc-consolidated-cutblocks-
+  </span>
+</div>
 
 
-async function loadGeojson(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to load GeoJSON: ${res.status}`);
-    return res.json();
-}
+  <!-- MapLibre JS (load once, before main.js) -->
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script src="main.js"></script>
+</body>
 
-map.on("load", async () => {
-    const gj = await loadGeojson(GEOJSON_URL);
-    // map.fitBounds(maxBounds, { padding: 40, duration: 0 });
-    // map.setZoom(9);
-
-    // Extract distinct years
-    const yearSet = new Set();
-    for (const f of (gj.features || [])) {
-        const y = Number(f?.properties?.[YEAR_FIELD]);
-        if (!Number.isNaN(y)) yearSet.add(y);
-    }
-    years = Array.from(yearSet).sort((a, b) => a - b);
-
-    // --- Apply optional year limits from URL (AFTER years is populated) ---
-    START_YEAR_LIMIT = getNumberParam("startYear", years[0]);
-    END_YEAR_LIMIT = getNumberParam("endYear", years[years.length - 1]);
-
-    // If user swaps them, fix it
-    if (START_YEAR_LIMIT > END_YEAR_LIMIT) {
-        [START_YEAR_LIMIT, END_YEAR_LIMIT] = [END_YEAR_LIMIT, START_YEAR_LIMIT];
-    }
-
-    // Clamp to available data
-    START_YEAR_LIMIT = Math.max(START_YEAR_LIMIT, years[0]);
-    END_YEAR_LIMIT = Math.min(END_YEAR_LIMIT, years[years.length - 1]);
-
-    // Filter years to the requested range
-    years = years.filter(y => y >= START_YEAR_LIMIT && y <= END_YEAR_LIMIT);
-
-    if (years.length === 0) {
-        yearLabel.textContent = "No years in range";
-        return;
-    }
-
-    if (years.length === 0) {
-        yearLabel.textContent = "No years";
-        return;
-    }
-
-    yearSlider.min = String(years[0]);
-    yearSlider.max = String(years[years.length - 1]);
-    yearSlider.step = "1";
-
-    yearSlider.step = "1";
-
-    map.addSource("logging", {
-        type: "geojson",
-        data: gj
-    });
-
-    map.addLayer({
-        id: "logging-fill",
-        type: "fill",
-        source: "logging",
-        paint: {
-            "fill-color": "#670000",
-            "fill-opacity": 0.55,
-            "fill-outline-color": "#670000"
-        }
-    });
-
-    map.addLayer({
-        id: "logging-line",
-        type: "line",
-        source: "logging",
-        paint: {
-            "line-color": "#670000",
-            "line-width": 1
-        }
-    });
-
-    map.setPaintProperty("logging-fill", "fill-opacity-transition", { duration: 250, delay: 0 });
-
-    setYear(years[0]);
-
-    // Autoplay once everything is ready
-    if (AUTOPLAY_ON_LOAD) {
-        startPlayback();
-    }
-});
+</html>
