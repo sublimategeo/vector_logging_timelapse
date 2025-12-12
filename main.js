@@ -5,6 +5,22 @@ const CUMULATIVE = true;
 const AUTOPLAY_ON_LOAD = true;
 const DEFAULT_SPEED_MS = 200; // 1× speed
 
+// ---- URL parameters ----
+const params = new URLSearchParams(window.location.search);
+
+// Define hard defaults
+const DEFAULT_START_YEAR = 1900;
+const DEFAULT_END_YEAR   = 2023;
+
+// Read from URL or fall back
+let startYear = parseInt(params.get("startYear")) || DEFAULT_START_YEAR;
+let endYear   = parseInt(params.get("endYear"))   || DEFAULT_END_YEAR;
+
+// Safety check
+if (startYear > endYear) {
+  [startYear, endYear] = [endYear, startYear];
+}
+
 // Carto light bsaemap
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 // -------------------
