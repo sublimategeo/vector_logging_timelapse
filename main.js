@@ -5,22 +5,6 @@ const CUMULATIVE = true;
 const AUTOPLAY_ON_LOAD = true;
 const DEFAULT_SPEED_MS = 200; // 1× speed
 
-// ---- URL parameters ----
-const params = new URLSearchParams(window.location.search);
-
-// Define hard defaults
-const DEFAULT_START_YEAR = 1900;
-const DEFAULT_END_YEAR   = 2023;
-
-// Read from URL or fall back
-let startYear = parseInt(params.get("startYear")) || DEFAULT_START_YEAR;
-let endYear   = parseInt(params.get("endYear"))   || DEFAULT_END_YEAR;
-
-// Safety check
-if (startYear > endYear) {
-  [startYear, endYear] = [endYear, startYear];
-}
-
 // Carto light bsaemap
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 // -------------------
@@ -65,10 +49,11 @@ const yearLabel = document.getElementById("year-label");
 const playBtn = document.getElementById("playBtn");
 const speedSelect = document.getElementById("speedSelect");
 
-function getNumberParam(name, fallback) {
+function getOptionalNumberParam(name) {
     const value = new URLSearchParams(window.location.search).get(name);
+    if (value === null || value === "") return null;
     const num = Number(value);
-    return Number.isFinite(num) ? num : fallback;
+    return Number.isFinite(num) ? num : null;
 }
 
 let years = [];
@@ -164,8 +149,12 @@ map.on("load", async () => {
     }
 
     // Apply optional year limits from URL
-    START_YEAR_LIMIT = getNumberParam("startYear", years[0]);
-    END_YEAR_LIMIT = getNumberParam("endYear", years[years.length - 1]);
+    // Apply optional year limits from URL (default: full data range)
+    const urlStart = getOptionalNumberParam("startYear");
+    const urlEnd = getOptionalNumberParam("endYear");
+
+    START_YEAR_LIMIT = (urlStart !== null) ? urlStart : years[0];
+    END_YEAR_LIMIT = (urlEnd !== null) ? urlEnd : years[years.length - 1];
 
     if (START_YEAR_LIMIT > END_YEAR_LIMIT) {
         [START_YEAR_LIMIT, END_YEAR_LIMIT] = [END_YEAR_LIMIT, START_YEAR_LIMIT];
@@ -175,6 +164,7 @@ map.on("load", async () => {
     END_YEAR_LIMIT = Math.min(END_YEAR_LIMIT, years[years.length - 1]);
 
     years = years.filter(y => y >= START_YEAR_LIMIT && y <= END_YEAR_LIMIT);
+
 
     console.log("Range params:", { START_YEAR_LIMIT, END_YEAR_LIMIT, search: window.location.search });
     console.log("Years after filter:", years[0], years[years.length - 1], "count:", years.length);
@@ -211,3 +201,4 @@ map.on("load", async () => {
 
     if (AUTOPLAY_ON_LOAD) startPlayback();
 });
+
