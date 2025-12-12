@@ -1,7 +1,7 @@
 // ----- CONFIG -----
 const GEOJSON_URL = "./data/cutblock_year_timelapse.geojson";
-const YEAR_FIELD = "HARVEST_START_YEAR_CALENDAR"; // <-- CHANGE THIS to match your GeoJSON properties field name
-const CUMULATIVE = true;   // year <= currentYear
+const YEAR_FIELD = "HARVEST_START_YEAR_CALENDAR";
+const CUMULATIVE = true;
 const AUTOPLAY_ON_LOAD = true;
 const DEFAULT_SPEED_MS = 200; // 1× speed
 
@@ -22,8 +22,8 @@ const neLat = 49.61080514852734;
 // --- 2 km buffer around the original box ---
 const meanLat = (swLat + neLat) / 2;
 
-const bufferLat = 5 / 111;
-const bufferLon = 5 / (111.32 * Math.cos(meanLat * Math.PI / 180));
+const bufferLat = 2 / 111;
+const bufferLon = 2 / (111.32 * Math.cos(meanLat * Math.PI / 180));
 
 const maxBounds = new maplibregl.LngLatBounds(
     [swLon - bufferLon, swLat - bufferLat],
@@ -49,10 +49,18 @@ const yearLabel = document.getElementById("year-label");
 const playBtn = document.getElementById("playBtn");
 const speedSelect = document.getElementById("speedSelect");
 
+function getNumberParam(name, fallback) {
+    const value = new URLSearchParams(window.location.search).get(name);
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+
 let years = [];
 let currentYear = null;
 let playing = false;
 let timer = null;
+let START_YEAR_LIMIT = null;
+let END_YEAR_LIMIT = null;
 
 function setYear(y) {
     currentYear = Number(y);
@@ -125,15 +133,13 @@ async function loadGeojson(url) {
 
 map.on("load", async () => {
     const gj = await loadGeojson(GEOJSON_URL);
-    // map.fitBounds(maxBounds, { padding: 40, duration: 0 });
-    // map.setZoom(9);
 
-    // Extract distinct years
     const yearSet = new Set();
     for (const f of (gj.features || [])) {
         const y = Number(f?.properties?.[YEAR_FIELD]);
         if (!Number.isNaN(y)) yearSet.add(y);
     }
+
     years = Array.from(yearSet).sort((a, b) => a - b);
 
     if (years.length === 0) {
@@ -141,43 +147,51 @@ map.on("load", async () => {
         return;
     }
 
+    // Apply optional year limits from URL
+    START_YEAR_LIMIT = getNumberParam("startYear", years[0]);
+    END_YEAR_LIMIT = getNumberParam("endYear", years[years.length - 1]);
+
+    if (START_YEAR_LIMIT > END_YEAR_LIMIT) {
+        [START_YEAR_LIMIT, END_YEAR_LIMIT] = [END_YEAR_LIMIT, START_YEAR_LIMIT];
+    }
+
+    START_YEAR_LIMIT = Math.max(START_YEAR_LIMIT, years[0]);
+    END_YEAR_LIMIT = Math.min(END_YEAR_LIMIT, years[years.length - 1]);
+
+    years = years.filter(y => y >= START_YEAR_LIMIT && y <= END_YEAR_LIMIT);
+
+    console.log("Range params:", { START_YEAR_LIMIT, END_YEAR_LIMIT, search: window.location.search });
+    console.log("Years after filter:", years[0], years[years.length - 1], "count:", years.length);
+
+    if (years.length === 0) {
+        yearLabel.textContent = "No years in range";
+        return;
+    }
+
     yearSlider.min = String(years[0]);
     yearSlider.max = String(years[years.length - 1]);
     yearSlider.step = "1";
+    yearSlider.value = String(years[0]); // start at earliest in range
 
-    map.addSource("logging", {
-        type: "geojson",
-        data: gj
-    });
+    map.addSource("logging", { type: "geojson", data: gj });
 
     map.addLayer({
         id: "logging-fill",
         type: "fill",
         source: "logging",
-        paint: {
-            "fill-color": "#670000",
-            "fill-opacity": 0.55,
-            "fill-outline-color": "#670000"
-        }
+        paint: { "fill-color": "#670000", "fill-opacity": 0.55, "fill-outline-color": "#670000" }
     });
 
     map.addLayer({
         id: "logging-line",
         type: "line",
         source: "logging",
-        paint: {
-            "line-color": "#670000",
-            "line-width": 1
-        }
+        paint: { "line-color": "#670000", "line-width": 1 }
     });
 
-    // Optional: make year changes feel less “steppy”
     map.setPaintProperty("logging-fill", "fill-opacity-transition", { duration: 250, delay: 0 });
 
     setYear(years[0]);
 
-    // Autoplay once everything is ready
-    if (AUTOPLAY_ON_LOAD) {
-        startPlayback();
-    }
+    if (AUTOPLAY_ON_LOAD) startPlayback();
 });
