@@ -10,6 +10,9 @@
   --text: #111111b6;
   --text-muted: rgba(0, 0, 0, 0.72);
   --control-bg-hover: rgba(0, 0, 0, 0.08);
+  --edge-pad: 12px;
+  --attrib-safe: 44px;
+  --ui-gap: 12px;
 }
 
 html,
@@ -38,7 +41,7 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: calc(var(--edge-pad) + var(--attrib-safe) + var(--ui-gap));
 
   display: flex;
   justify-content: center;
@@ -46,7 +49,7 @@ body {
   z-index: 1000;
   pointer-events: none;
   /* allows map drag except on inner panel */
-  padding: 0 16px;
+  padding: 0 var(--edge-pad);
 }
 
 .time-inner {
@@ -54,9 +57,11 @@ body {
   /* re-enable interaction on the control bar */
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: nowrap;
+  /* prevent wrapping */
+  gap: 10px;
 
-  width: min(1000px, 94vw);
+  width: min(1400px, 94vw);
   padding: 12px 16px;
 
   background: var(--panel-bg);
@@ -79,16 +84,16 @@ body {
 
 /* Slider */
 .time-inner input[type="range"] {
-  flex: 1;
-  min-width: 240px;
-  margin: 0 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   cursor: pointer;
 }
 
 /* Year label on the right */
 #year-label {
-  min-width: 110px;
-  text-align: right;
+  min-width: 40px;
+  text-align: center;
   font-weight: 700;
   font-size: 14px;
   color: var(--text);
@@ -103,13 +108,15 @@ body {
   border: none;
   background: transparent;
 
+  flex: 0 0 auto;
   width: 40px;
   height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   font-size: 22px;
   line-height: 1;
-  display: grid;
-  place-items: center;
 
   cursor: pointer;
   opacity: 0.9;
@@ -135,8 +142,11 @@ body {
 
   padding: 8px 10px;
   border-radius: 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 
   font-size: 14px;
+  text-align: center;
   color: var(--text);
   cursor: pointer;
 
@@ -149,7 +159,7 @@ body {
 }
 
 /* =========================================================
-   MapLibre tweaks (optional but nice)
+   MapLibre tweaks 
    ========================================================= */
 
 /* Keep MapLibre control buttons consistent with your UI */
@@ -166,17 +176,26 @@ body {
 
 /* Attribution readable over light basemaps */
 .maplibregl-ctrl-attrib {
-  font-size: 11px !important;
+  font-size: 8px !important;
   background: rgba(255, 255, 255, 0.75) !important;
   border-radius: 10px !important;
   margin: 8px !important;
+  white-space: normal;
+}
+
+.maplibregl-ctrl-attrib-inner {
+  display: inline !important;
 }
 
 /* =========================================================
-   Responsive tweaks
+   For small screens
    ========================================================= */
 
 @media (max-width: 640px) {
+  :root {
+    --attrib-safe: 48px;
+  }
+
   .time-inner {
     gap: 10px;
     padding: 10px 12px;
@@ -184,11 +203,6 @@ body {
 
   .time-inner label {
     display: none;
-    /* saves space on mobile */
-  }
-
-  #year-label {
-    min-width: 92px;
   }
 
   .speed-select {
@@ -197,16 +211,70 @@ body {
 
   .time-inner input[type="range"] {
     min-width: 160px;
-    margin: 0 6px;
+    margin: 0;
   }
 }
+
+/* =========================================================
+   Legend (top-left)
+   ========================================================= */
+
+.legend {
+  position: absolute;
+  top: 50%;
+  right: var(--edge-pad);
+  left: auto;
+  transform: translateY(-50%);
+  z-index: 1100;
+  pointer-events: auto;
+
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 14px;
+  padding: 10px 12px;
+  min-width: 160px;
+
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  font-size: 13px;
+  color: var(--text);
+}
+
+.legend-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #670000;
+  opacity: 0.55;
+  /* matches fill-opacity */
+}
+
+.legend-label {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 
 /* =========================================================
    Responsive tweaks
    ========================================================= */
 
 /* Credits panel (bottom-left, above attribution) */
-.credits {
+/* .credits {
   position: absolute;
   left: 12px;
   bottom: 12px;
@@ -228,8 +296,8 @@ body {
 }
 
 /* Keep it from colliding with your slider bar on small screens */
-@media (max-width: 640px) {
+/* @media (max-width: 640px) {
   .credits {
-    bottom: 74px; /* lifts above the time control pill */
+    bottom: 74px; 
   }
-}
+}  */

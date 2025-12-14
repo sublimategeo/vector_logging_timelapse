@@ -5,6 +5,16 @@ const CUMULATIVE = true;
 const AUTOPLAY_ON_LOAD = true;
 const DEFAULT_SPEED_MS = 200; // 1× speed
 
+// ----- SMALL SCREEN CONFIG -----
+const MOBILE_MAX_WIDTH = 640;
+const DEFAULT_ZOOM_DESKTOP = 11.5;
+const DEFAULT_ZOOM_MOBILE = 7;
+
+const initialZoom = (window.innerWidth <= MOBILE_MAX_WIDTH)
+    ? DEFAULT_ZOOM_MOBILE
+    : DEFAULT_ZOOM_DESKTOP;
+
+
 // Carto light bsaemap
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 // -------------------
@@ -19,11 +29,11 @@ const swLat = 49.53559929341239;
 const neLon = -123.06988635889327;
 const neLat = 49.61080514852734;
 
-// --- 2 km buffer around the original box ---
+// --- 25 km buffer around the original box ---
 const meanLat = (swLat + neLat) / 2;
 
-const bufferLat = 2 / 111;
-const bufferLon = 2 / (111.32 * Math.cos(meanLat * Math.PI / 180));
+const bufferLat = 25 / 111;
+const bufferLon = 25 / (111.32 * Math.cos(meanLat * Math.PI / 180));
 
 const maxBounds = new maplibregl.LngLatBounds(
     [swLon - bufferLon, swLat - bufferLat],
@@ -37,12 +47,36 @@ const map = new maplibregl.Map({
     style: BASEMAP_STYLE,
     maxBounds: maxBounds,
     maxZoom: 12,
+    minZoom: 7,
+    zoom: initialZoom,
     center: [mapCenter.lng, mapCenter.lat],
-    zoom: 10
+    attributionControl: false
 });
 
-map.scrollZoom.disable();
+map.addControl(
+    new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: [
+            'Data Source: <a href="https://catalogue.data.gov.bc.ca/dataset/harvested-areas-of-bc-consolidated-cutblocks-" target="_blank" rel="noopener">Harvested Areas of BC (Consolidated Cutblocks)</a> — Copyright © 2025, Forest Analysis and Inventory Branch, Province of British Columbia.'
+        ]
+    }),
+    "bottom-right"
+);
+
+// map.scrollZoom.disable();
 map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+let userTouchedZoom = false;
+
+map.on("zoomstart", () => { userTouchedZoom = true; });
+
+window.addEventListener("resize", () => {
+    if (userTouchedZoom) return;
+    const target = (window.innerWidth <= MOBILE_MAX_WIDTH)
+        ? DEFAULT_ZOOM_MOBILE
+        : DEFAULT_ZOOM_DESKTOP;
+    map.setZoom(target);
+});
 
 const yearSlider = document.getElementById("yearSlider");
 const yearLabel = document.getElementById("year-label");
@@ -149,7 +183,6 @@ map.on("load", async () => {
     }
 
     // Apply optional year limits from URL
-    // Apply optional year limits from URL (default: full data range)
     const urlStart = getOptionalNumberParam("startYear");
     const urlEnd = getOptionalNumberParam("endYear");
 
@@ -164,10 +197,6 @@ map.on("load", async () => {
     END_YEAR_LIMIT = Math.min(END_YEAR_LIMIT, years[years.length - 1]);
 
     years = years.filter(y => y >= START_YEAR_LIMIT && y <= END_YEAR_LIMIT);
-
-
-    console.log("Range params:", { START_YEAR_LIMIT, END_YEAR_LIMIT, search: window.location.search });
-    console.log("Years after filter:", years[0], years[years.length - 1], "count:", years.length);
 
     if (years.length === 0) {
         yearLabel.textContent = "No years in range";
